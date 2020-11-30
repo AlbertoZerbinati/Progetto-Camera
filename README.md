@@ -1,2 +1,4 @@
 # Progetto-Camera
-Sistema illuminazione, sensoristica della camera, con Arduino ed integrabile con Raspberry 
+Sistema illuminazione e sensoristica per la mia cameretta,
+sfruttando Arduino e con l'intenzione di integrare le funzionalità
+webserver di Raspberry. 
