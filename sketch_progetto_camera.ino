@@ -8,9 +8,6 @@
 #define RASPIN 6
 
 #define NUM_MODES 7
-
-
-
 #define OFF 0
 #define RGBMODE 1
 #define WHITE 2
