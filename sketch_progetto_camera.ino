@@ -26,6 +26,7 @@ int red = 255, green = 0, blue = 0;
 //per switch mode
 int mode = OFF;
 int active_mode = OFF;
+int prev_active_mode = active_mode;
 String modes[NUM_MODES] = {"Off", "RGB", "White", "Cold", "Warm",  "Pick a color!", "Temperature"};
 
 //INPUT (encoder rotativo)
@@ -36,14 +37,15 @@ const int pinS2 = 9;
 //INPUT analog potenziometro
 const int pinPot = A0;
 
-
 //colorpicker
 int previousVal = 0;
-
 
 void setup() {
   Serial.begin(9600);
   FastLED.addLeds<NEOPIXEL, DATA_PIN>(leds, NUM_LEDS);
+  FastLED.setBrightness(35);
+  off();
+
   pinMode(RASPIN, INPUT);
   pinMode(pinPot, INPUT);
 
@@ -55,84 +57,93 @@ void setup() {
 
 void loop() {
   setMode();
-
-  if (active_mode == OFF) {
-    off();
-    setMode();
-  }
-  if (active_mode == RGBMODE) {
-    rgbmode();
-    setMode();
-  }
-  if (active_mode == WHITE) {
-    white();
-    setMode();
-  }
-  if (active_mode == COLD) {
-    cold();
-    setMode();
-  }
-  if (active_mode == WARM) {
-    warm();
-    setMode();
-  }
-  if (active_mode == PICK) {
-    pick();
-    setMode();
+  if (active_mode != prev_active_mode) {
+    if (active_mode == OFF) {
+      off();
+      setMode();
+      prev_active_mode = active_mode;
+    }
+    if (active_mode == RGBMODE) {
+      prev_active_mode = active_mode; //NON POSSO AVERE QUESTA RIGA DOPO LA SUCCESSIVA
+                                      //PERCHE' SIGNIFICHEREBBE USCIRE DA rgbmode(), SETTARE
+                                      //prev_active_mode ALLA NUOVA MODALITA' E COSI' NON
+                                      //POTREI PIU' ENTRARE NELL'if PRINCIPALE PERCHE'
+                                      //prev_active_mode == active_mode     !!!
+      rgbmode();
+      setMode();
+    }
+    if (active_mode == WHITE) {
+      white();
+      setMode();
+      prev_active_mode = active_mode;
+    }
+    if (active_mode == COLD) {
+      cold();
+      setMode();
+      prev_active_mode = active_mode;
+    }
+    if (active_mode == WARM) {
+      warm();
+      setMode();
+      prev_active_mode = active_mode;
+    }
+    if (active_mode == PICK) {
+      prev_active_mode = active_mode;   //STESSA COSA DI rgbmode()
+      pick();
+      setMode();
+    }
+    //    Serial.print("active mode: ");
+    //    Serial.print(active_mode);
+    //    Serial.print("  prev active mode: ");
+    //    Serial.println(prev_active_mode);
   }
   delay(10);
 }
 
 void off() {
-  FastLED.setBrightness(0);
-  FastLED.show();
+  for (int i = 0; i <= NUM_LEDS / 2; i++) {
+    leds[i] = CRGB(0, 0, 0);
+    leds[NUM_LEDS - i] = CRGB(0, 0, 0);
+    FastLED.show();
+    //delay(1);
+  }
 }
 
 void rgbmode() {
-  FastLED.setBrightness(25);
-
-  while (red > 0) {
-    setMode(); //controllo sempre se sono in modalità giusta
-    if (active_mode != RGBMODE)
-      return;
-
-    red--;
-    green++;
-    for (int i = 0; i < NUM_LEDS; i++) {
-      leds[i] = CRGB(red, green, blue);
+  while (active_mode == RGBMODE) {
+    while (red > 0 && active_mode == RGBMODE) {
+      setMode(); //controllo sempre se sono in modalità giusta
+      red--;
+      green++;
+      for (int i = 0; i < NUM_LEDS; i++) {
+        leds[i] = CRGB(red, green, blue);
+      }
+      FastLED.show();
     }
-    FastLED.show();
-  }
 
-  while (green > 0) {
-    setMode(); //controllo sempre se sono in modalità giusta
-    if (active_mode != RGBMODE)
-      return;
-
-    green--;
-    blue++;
-    for (int i = 0; i < NUM_LEDS; i++) {
-      leds[i] = CRGB(red, green, blue);
+    while (green > 0 && active_mode == RGBMODE) {
+      setMode(); //controllo sempre se sono in modalità giusta
+      green--;
+      blue++;
+      for (int i = 0; i < NUM_LEDS; i++) {
+        leds[i] = CRGB(red, green, blue);
+      }
+      FastLED.show();
     }
-    FastLED.show();
-  }
 
-  while (blue > 0) {
-    setMode(); //controllo sempre se sono in modalità giusta
-    if (active_mode != RGBMODE)
-      return;
-
-    blue--;
-    red++;
-    for (int i = 0; i < NUM_LEDS; i++) {
-      leds[i] = CRGB(red, green, blue);
+    while (blue > 0 && active_mode == RGBMODE) {
+      setMode(); //controllo sempre se sono in modalità giusta
+      blue--;
+      red++;
+      for (int i = 0; i < NUM_LEDS; i++) {
+        leds[i] = CRGB(red, green, blue);
+      }
+      FastLED.show();
     }
-    FastLED.show();
   }
 }
 
 void white() {
-  FastLED.setBrightness(25);
   for (int i = 0; i < NUM_LEDS; i++) {
     leds[i] = CRGB(255, 255, 255);
   }
@@ -140,7 +151,6 @@ void white() {
 }
 
 void cold() {
-  FastLED.setBrightness(25);
   for (int i = 0; i < NUM_LEDS; i++) {
     leds[i] = CRGB(80, 150, 255);
   }
@@ -148,7 +158,6 @@ void cold() {
 }
 
 void warm() {
-  FastLED.setBrightness(25);
   for (int i = 0; i < NUM_LEDS; i++) {
     leds[i] = CRGB(255, 150, 80);
   }
@@ -156,17 +165,19 @@ void warm() {
 }
 
 void pick() {
-  int val = analogRead(pinPot);
-  if (abs(val-previousVal)<10) { //stabilizzazione colore
-    val = previousVal;
+  while (active_mode == PICK) {
+    setMode();
+    int val = analogRead(pinPot);
+    if (abs(val - previousVal) < 10) { //stabilizzazione colore
+      val = previousVal;
+    }
+    float h = map(val, 0, 1023, 370, 0);
+    for (int i = 0; i < NUM_LEDS; i++) {
+      leds[i] = CHSV(h, 255, 255);
+    }
+    FastLED.show();
+    previousVal = val;
   }
-  float h = map(val, 0, 1023, 370, 0);
-  FastLED.setBrightness(25);
-  for (int i = 0; i < NUM_LEDS; i++) {
-    leds[i] = CHSV(h, 255, 255);
-  }
-  FastLED.show();
-  previousVal = val;
 }
 
 void setMode() {
