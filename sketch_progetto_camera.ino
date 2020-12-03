@@ -4,7 +4,7 @@
 #include "rotary_encoder.h"
 
 #define NUM_LEDS 144
-#define DATA_PIN 13
+#define LED_DATA_PIN 13
 #define RASPIN 6
 
 #define NUM_MODES 7
@@ -37,17 +37,22 @@ const int pinS2 = 9;
 //INPUT analog potenziometro
 const int pinPot = A0;
 
+//INPUT tmp sensor (TMP36)
+const int pinTmp = A5;
+
 //colorpicker
 int previousVal = 0;
 
 void setup() {
   Serial.begin(9600);
-  FastLED.addLeds<NEOPIXEL, DATA_PIN>(leds, NUM_LEDS);
+  FastLED.addLeds<NEOPIXEL, LED_DATA_PIN>(leds, NUM_LEDS);
   FastLED.setBrightness(35);
   off();
 
   pinMode(RASPIN, INPUT);
   pinMode(pinPot, INPUT);
+  pinMode(pinTmp, INPUT);
+  //analogReference(INTERNAL);
 
   re = RotaryEncoder(pinS1, pinS2, pinKey);
 
@@ -92,11 +97,15 @@ void loop() {
       pick();
       setMode();
     }
-    //    Serial.print("active mode: ");
-    //    Serial.print(active_mode);
-    //    Serial.print("  prev active mode: ");
-    //    Serial.println(prev_active_mode);
+    if (active_mode == TEMP) {
+      temp();
+      setMode();
+      int prev = prev_active_mode;   
+      prev_active_mode = active_mode; //QUA DEVE STARE DOPO PERCHE' LA USO IN temp()
+      active_mode = prev;             //ritorno alla modalita' di prima
+    }
   }
+
   delay(10);
 }
 
@@ -105,7 +114,6 @@ void off() {
     leds[i] = CRGB(0, 0, 0);
     leds[NUM_LEDS - i] = CRGB(0, 0, 0);
     FastLED.show();
-    //delay(1);
   }
 }
 
@@ -165,10 +173,11 @@ void warm() {
 }
 
 void pick() {
+  //analogReference(DEFAULT);
   while (active_mode == PICK) {
     setMode();
     int val = analogRead(pinPot);
-    if (abs(val - previousVal) < 10) { //stabilizzazione colore
+    if (abs(val - previousVal) < 12) { //stabilizzazione colore
       val = previousVal;
     }
     float h = map(val, 0, 1023, 370, 0);
@@ -178,6 +187,34 @@ void pick() {
     FastLED.show();
     previousVal = val;
   }
+}
+
+
+void temp() {
+  //temperatura media (aritmetica) su 100 letture
+  double mean_temp = 0;
+
+  for (int i = 0; i < 100; i++) {
+    int val = analogRead(pinTmp);
+    double volts = (val / 1024.0); //shoud be *5 but there is non-constant voltage on Vcc so I have to switch... :'(((
+    switch (prev_active_mode) {
+      case OFF: volts *= 5; break;
+      case RGBMODE: volts *= (4.65 * 5 / 4.87); break;
+      case WHITE: volts *= (4.4 * 5 / 4.87); break;
+      case COLD: volts *= (4.4 * 5 / 4.87); break;
+      case WARM: volts *= (4.4 * 5 / 4.87); break;
+      case PICK: volts *= (4.65 * 5 / 4.87); break;
+      default: volts *= 5; break;
+    }
+    double temp = (volts - 0.5) * 100;
+    mean_temp += temp;
+  }
+  mean_temp /= 100;
+  
+  //Serial.println(mean_temp);
+  
+  lcd.setCursor(11, 0);
+  lcd.print(mean_temp);
 }
 
 void setMode() {
